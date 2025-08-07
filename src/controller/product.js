@@ -61,23 +61,65 @@ async function addProduct(req, res) {
 }
 
 
-async function updateProduct ( req, res){
-    const { id } = req.params;
+// async function updateProduct ( req, res){
+//     const { id } = req.params;
  
-    try{         
-     const updated = await models.Product.update(req.body, {
+//     try{         
+//      const updated = await models.Product.update(req.body, {
+//       where: { id: id },
+//     });
+//     if(!updated){
+//         return res.status(404).json({message: "Product not found"});
+//     }
+//        return  res.status(200).json({message: "Product updated successfuly", 
+//         result: updated
+//       })
+//     }catch(error){
+        
+//        return res.status(404).json({message: "Somthing went wrong", error: error})
+//     }
+// }
+
+async function updateProduct(req, res) {
+  const { id } = req.params;
+
+  try {
+    // 1. Update basic product details
+    const [updated] = await models.Product.update(req.body, {
       where: { id: id },
     });
-    if(!updated){
-        return res.status(404).json({message: "Product not found"});
+
+    if (!updated) {
+      return res.status(404).json({ message: "Product not found" });
     }
-       return  res.status(200).json({message: "Product updated successfuly", 
-        result: updated
-      })
-    }catch(error){
-        
-       return res.status(404).json({message: "Somthing went wrong", error: error})
+
+    // 2. If new images uploaded
+    if (req.files && req.files.length > 0) {
+      // Optional: Delete old images from DB
+      await models.ProductImage.destroy({ where: { productId: id } });
+
+      // Optional: Also delete old files from disk
+      // You can use fs.unlinkSync or fs.promises.unlink
+
+      // 3. Add new images to DB
+      const imageRecords = req.files.map(file => ({
+        productId: id,
+        imageUrl: `/uploads/${file.filename}`,
+      }));
+
+      await models.ProductImage.bulkCreate(imageRecords);
     }
+
+    return res.status(200).json({
+      message: "Product updated successfully",
+    });
+  } catch (error) {
+    console.error("Update product error:", error);
+    return res.status(500).json({
+      message: "Something went wrong",
+      error: error.message,
+    });
+  }
 }
 
 async function deleteProduct(req, res){
